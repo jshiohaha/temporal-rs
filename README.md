@@ -9,7 +9,10 @@ commented line by line:
 | [`crates/hello-world`](crates/hello-world) | The whole model in ~60 lines: one Workflow, one Activity, a Worker, a Starter. |
 | [`crates/order-pipeline`](crates/order-pipeline) | The real job: dependency injection, idempotency, retry policies, heartbeats, signals, queries, saga compensation. |
 
-Visual walkthrough: **[`docs/architecture.html`](docs/architecture.html)** — open it in a browser.
+Two companion documents, both HTML — open in a browser:
+
+- **[`docs/architecture.html`](docs/architecture.html)** — five diagrams of the durability model: replay, sagas, idempotency keys, retry anatomy.
+- **[`docs/implementation-surface.html`](docs/implementation-surface.html)** — an honest adoption assessment: API churn, the non-idiomatic workflow model, panic semantics, build footprint, and what is still missing. Read this before committing to the SDK.
 
 ---
 

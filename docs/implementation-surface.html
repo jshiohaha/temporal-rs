@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Temporal Rust Field Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --ground:#EEF2F0; --surface:#FFFFFF; --sunken:#E4EAE7;
+  --ink:#151E1B; --muted:#5C6B66;
+  --accent:#0E6A57; --accent-soft:#D7E8E3;
+  --signal:#B4501F; --signal-soft:#F4E0D6;
+  --line:#C8D3CF; --line-strong:#A9B8B3;
+  --sans:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0C1211; --surface:#141D1A; --sunken:#1A2522;
+    --ink:#E2EAE7; --muted:#98A8A3;
+    --accent:#54C4A6; --accent-soft:#173029;
+    --signal:#E28A5B; --signal-soft:#2E1F16;
+    --line:#28352F; --line-strong:#3C4E47;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0C1211; --surface:#141D1A; --sunken:#1A2522;
+  --ink:#E2EAE7; --muted:#98A8A3;
+  --accent:#54C4A6; --accent-soft:#173029;
+  --signal:#E28A5B; --signal-soft:#2E1F16;
+  --line:#28352F; --line-strong:#3C4E47;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1020px;margin:0 auto;padding:0 28px 90px}
+
+.masthead{padding:54px 0 30px;display:grid;gap:20px}
+.kicker{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0}
+h1{font-size:clamp(32px,5vw,54px);line-height:1.05;letter-spacing:-.028em;font-weight:600;margin:0;max-width:17ch;text-wrap:balance}
+.standfirst{font-size:19px;line-height:1.55;color:var(--muted);margin:0;max-width:64ch}
+.standfirst strong{color:var(--ink);font-weight:600}
+
+/* verdict */
+.verdict{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:26px 28px;margin:14px 0 8px;display:grid;gap:14px}
+.verdict h2{margin:0;font-size:20px;letter-spacing:-.01em}
+.verdict p{margin:0;max-width:68ch}
+.vgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:5px;overflow:hidden;margin-top:6px}
+.vcell{background:var(--surface);padding:15px 17px}
+.vcell .n{font-family:var(--mono);font-size:23px;font-weight:600;color:var(--accent);display:block;line-height:1.2;font-variant-numeric:tabular-nums}
+.vcell .n.warn{color:var(--signal)}
+.vcell .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);display:block;margin-top:6px}
+
+section{padding:46px 0;border-top:1px solid var(--line)}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+h2{font-size:clamp(23px,3vw,31px);line-height:1.16;letter-spacing:-.02em;font-weight:600;margin:0 0 16px;max-width:24ch;text-wrap:balance}
+h3{font-size:18px;font-weight:600;letter-spacing:-.01em;margin:30px 0 8px;max-width:40ch}
+p{margin:0 0 16px;max-width:68ch}
+p:last-child{margin-bottom:0}
+.lead{font-size:17.5px}
+code{font-family:var(--mono);font-size:.87em;background:var(--sunken);border:1px solid var(--line);border-radius:3px;padding:.1em .34em}
+pre{background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:16px 18px;overflow-x:auto;margin:0 0 16px;font-size:13px;line-height:1.62}
+pre code{background:none;border:0;padding:0;font-size:inherit}
+ul{margin:0 0 16px;padding-left:22px;max-width:68ch}
+li{margin-bottom:7px}
+
+/* finding chips */
+.chip{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.11em;text-transform:uppercase;padding:3px 8px;border-radius:3px;vertical-align:2px;margin-right:9px;font-weight:500;white-space:nowrap}
+.c-edge{background:var(--signal-soft);color:var(--signal);border:1px solid var(--signal)}
+.c-struct{background:var(--sunken);color:var(--muted);border:1px solid var(--line-strong)}
+.c-plus{background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent)}
+
+figure{margin:28px 0 8px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:24px 24px 16px;overflow-x:auto}
+figure svg{display:block;width:100%;max-width:100%;height:auto;color:var(--ink)}
+figcaption{margin-top:15px;padding-top:13px;border-top:1px solid var(--line);font-size:13.5px;line-height:1.5;color:var(--muted);max-width:78ch}
+figcaption b{color:var(--ink);font-weight:600}
+.s-box{fill:var(--sunken);stroke:var(--line-strong);stroke-width:1.25}
+.s-box-a{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.25}
+.s-box-f{fill:var(--signal-soft);stroke:var(--signal);stroke-width:1.25}
+.s-t{font-family:var(--sans);font-size:13.5px;font-weight:600;fill:var(--ink)}
+.s-sub{font-family:var(--mono);font-size:10.5px;fill:var(--muted)}
+.s-lbl{font-family:var(--mono);font-size:11px;fill:var(--muted)}
+.s-lbl-a{font-family:var(--mono);font-size:11px;fill:var(--accent)}
+.s-lbl-f{font-family:var(--mono);font-size:11px;fill:var(--signal)}
+.s-line{stroke:var(--line-strong);stroke-width:1.5;fill:none}
+.s-line-a{stroke:var(--accent);stroke-width:1.75;fill:none}
+.s-line-f{stroke:var(--signal);stroke-width:1.75;fill:none}
+.s-dash{stroke-dasharray:5 4}
+
+.tablewrap{overflow-x:auto;margin:24px 0}
+table{border-collapse:collapse;width:100%;min-width:540px;font-size:14.5px}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--mono);font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);font-weight:500;border-bottom:1px solid var(--line-strong)}
+td code{background:none;border:0;padding:0;color:var(--accent);font-size:13px}
+.no{color:var(--signal);font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+.yes{color:var(--accent);font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+
+.rule{margin:26px 0 0;border-left:3px solid var(--signal);background:var(--surface);padding:17px 21px;border-radius:0 5px 5px 0}
+.rule p{margin:0;font-size:16.5px}
+.rule .tag{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--signal);margin-bottom:6px}
+.rule.good{border-left-color:var(--accent)}
+.rule.good .tag{color:var(--accent)}
+
+.fit{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:20px;margin-top:26px}
+.fitcard{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:22px 24px}
+.fitcard h3{margin:0 0 12px;font-size:16px;font-family:var(--mono);letter-spacing:.04em}
+.fitcard.yes-c{border-top:3px solid var(--accent)}
+.fitcard.no-c{border-top:3px solid var(--signal)}
+.fitcard ul{margin:0;padding-left:19px}
+.fitcard li{font-size:14.5px;margin-bottom:9px}
+
+footer{padding:34px 0 0;border-top:1px solid var(--line);font-size:13.5px;color:var(--muted);font-family:var(--mono);line-height:1.7}
+footer a{color:var(--accent)}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+  <p class="kicker">Evaluation &middot; temporalio-sdk 0.7.0 &middot; September 2026</p>
+  <h1>Temporal Rust field notes</h1>
+  <p class="standfirst">What the Rust SDK actually feels like to build against, written while building the two crates in this repo. <strong>The durability engine is mature; the Rust surface over it is three months old and moving fast.</strong> Almost every finding below follows from that one split.</p>
+</header>
+
+<div class="verdict">
+  <h2>The short version</h2>
+  <p>Temporal's Rust SDK is real and usable &mdash; I built a non-trivial workflow with dependency injection, sagas, idempotency and heartbeats, and everything I reached for existed. But you are adopting a <em>Public Preview</em> API with breaking changes in every release on a roughly two-week cadence, wrapped around a programming model that deliberately is not idiomatic async Rust. That is a fine trade for a team that is already Rust end-to-end and can absorb upgrade churn. It is a bad trade if you need API stability this quarter, or if another Temporal SDK is available to you.</p>
+  <div class="vgrid">
+    <div class="vcell"><span class="n">0.7.0</span><span class="k">public preview</span></div>
+    <div class="vcell"><span class="n warn">13 days</span><span class="k">between last 2 releases</span></div>
+    <div class="vcell"><span class="n warn">3 of 3</span><span class="k">releases with breaking changes</span></div>
+    <div class="vcell"><span class="n">317</span><span class="k">crates for hello world</span></div>
+    <div class="vcell"><span class="n warn">348 MB</span><span class="k">debug binary</span></div>
+    <div class="vcell"><span class="n">28 s</span><span class="k">incremental build + link</span></div>
+  </div>
+</div>
+
+<section>
+  <p class="eyebrow">What you are actually adopting</p>
+  <h2>A mature engine under a young surface</h2>
+  <p class="lead">This is the single most useful thing to understand, and it cuts both ways. The part that does the hard work &mdash; state machines, replay, task management, the gRPC client &mdash; is <code>sdk-core</code>, the same Rust engine that powers Temporal's TypeScript, Python, .NET and Ruby SDKs. It has years of production mileage behind it. What is new is the <em>authoring surface</em>: the macros, the workflow context, the typed client API.</p>
+
+  <figure>
+    <svg viewBox="0 0 820 260" role="img" aria-label="A layered diagram: the Rust authoring surface sits on top of sdk-core, which is the same engine also used by the TypeScript, Python, .NET and Ruby SDKs, which in turn talks gRPC to the Temporal Server.">
+      <rect class="s-box-f" x="30" y="30" width="230" height="56" rx="4"/>
+      <text class="s-t" x="145" y="53" text-anchor="middle">Rust authoring surface</text>
+      <text class="s-sub" x="145" y="72" text-anchor="middle">3 months old &middot; preview</text>
+
+      <rect class="s-box" x="300" y="30" width="490" height="56" rx="4" opacity="0.6"/>
+      <text class="s-sub" x="545" y="53" text-anchor="middle">TypeScript &middot; Python &middot; .NET &middot; Ruby surfaces</text>
+      <text class="s-sub" x="545" y="72" text-anchor="middle">years of production use</text>
+
+      <rect class="s-box-a" x="30" y="116" width="760" height="60" rx="4"/>
+      <text class="s-t" x="410" y="141" text-anchor="middle">sdk-core</text>
+      <text class="s-sub" x="410" y="161" text-anchor="middle">replay engine &middot; state machines &middot; task polling &middot; gRPC client &mdash; shared by all of the above</text>
+
+      <line class="s-line" x1="145" y1="86" x2="145" y2="112"/>
+      <line class="s-line" x1="545" y1="86" x2="545" y2="112"/>
+
+      <rect class="s-box" x="270" y="206" width="280" height="44" rx="4"/>
+      <text class="s-sub" x="410" y="233" text-anchor="middle">Temporal Server (gRPC)</text>
+      <line class="s-line" x1="410" y1="176" x2="410" y2="202"/>
+    </svg>
+    <figcaption><b>Bugs in durability are unlikely; bugs and churn in ergonomics are likely.</b> When something misbehaves, suspect the thin Rust layer and the macros before suspecting replay itself. It also means the Rust SDK inherits Core's feature set quickly &mdash; deployment versioning, payload codecs and metrics are all already present.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <p class="eyebrow">Risk 1 &mdash; the big one</p>
+  <h2>Every release so far has broken something</h2>
+  <p class="lead">The changelog is unambiguous. <code>0.5.0</code>, then <code>0.6.0</code> on 4 August, then <code>0.7.0</code> on 17 August, and an Unreleased section that already contains breaking changes. Every one of those has a <em>Breaking Changes</em> heading, and they are not cosmetic.</p>
+
+  <p>A sample of what <code>0.7.0</code> alone changed under people who had already written code against <code>0.6</code>:</p>
+  <ul>
+    <li><code>ActivityInfo</code> fields renamed &mdash; <code>workflow_namespace</code>, <code>workflow_execution</code> and <code>run_id</code> became <code>namespace</code>, <code>workflow_id</code>, <code>workflow_run_id</code>; <code>workflow_type</code> became <code>Option&lt;String&gt;</code>.</li>
+    <li><code>anyhow::Error</code> no longer converts into <code>WorkflowTermination</code> &mdash; you must wrap in <code>ApplicationFailure</code> explicitly.</li>
+    <li><code>Worker::run</code> changed its error type from <code>anyhow::Error</code> to <code>WorkerRunError</code>.</li>
+    <li><code>TimerOptions</code>, <code>RetryOptions</code> and several error enums became <code>#[non_exhaustive]</code>, so existing <code>match</code> arms stopped compiling.</li>
+    <li><code>InterceptorWithNext</code> removed outright.</li>
+  </ul>
+  <p>And already queued in Unreleased: <code>WorkflowContextView</code> loses <code>Send</code> and <code>Sync</code>. If you had put one behind a <code>Send</code> bound, that is your problem to fix on upgrade.</p>
+
+  <div class="rule">
+    <span class="tag">Mitigation</span>
+    <p>Pin exact versions (<code>=0.7.0</code>, not <code>^0.7</code>), keep SDK types out of your domain layer behind your own thin wrapper, and treat each upgrade as a scheduled task with a real time box &mdash; not something you do incidentally while shipping a feature.</p>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Risk 2 &mdash; the deep one</p>
+  <h2>Workflow code is not idiomatic async Rust</h2>
+  <p class="lead">This is the part most likely to surprise an experienced Rust developer, and it is not a rough edge that will be sanded off &mdash; it falls directly out of how deterministic replay works. Budget real ramp-up time for it.</p>
+
+  <h3><span class="chip c-struct">structural</span>Workflows are single-threaded and <code>!Send</code></h3>
+  <p>The workflow context is built on <code>Rc&lt;RefCell&lt;…&gt;&gt;</code> throughout, so anything holding it is neither <code>Send</code> nor <code>Sync</code>. You will notice this the moment you try to box a future: the SDK's own saga example reaches for <code>LocalBoxFuture</code>, not <code>BoxFuture</code>. Any helper you write for workflow code inherits that constraint, and generic library code with <code>Send</code> bounds simply cannot be used inside a workflow.</p>
+
+  <h3><span class="chip c-struct">structural</span><code>#[run]</code> takes no <code>self</code>, and state access goes through closures</h3>
+  <p>You would expect <code>async fn run(&amp;mut self, …)</code>. You get an associated function taking a context instead, and all state access is closure-scoped:</p>
+<pre><code>#[run]
+pub async fn run(ctx: &amp;mut WorkflowContext&lt;Self&gt;) -&gt; WorkflowResult&lt;String&gt; {
+    let request = ctx.state(|s| s.request.clone());     // read
+    ctx.state_mut(|s| s.status = OrderStatus::Charging); // write
+}</code></pre>
+  <p>The reason is sound: signal and query handlers must be able to touch workflow state while the <code>run</code> future is suspended at an await point, and Rust will not let you hold <code>&amp;mut self</code> across that. But the practical cost is that you clone data out of state constantly, and every mutation is a closure. It is the single most alien-feeling part of the API.</p>
+
+  <h3><span class="chip c-edge">sharp edge</span>Three context types, easy to pick wrong</h3>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Type</th><th>Where it appears</th><th>Can it await?</th></tr></thead>
+    <tbody>
+      <tr><td><code>WorkflowContext&lt;W&gt;</code></td><td><code>#[run]</code>, async <code>#[update]</code></td><td class="yes">yes</td></tr>
+      <tr><td><code>SyncWorkflowContext&lt;W&gt;</code></td><td>sync <code>#[signal]</code> / <code>#[update]</code></td><td class="no">no</td></tr>
+      <tr><td><code>WorkflowContextView</code></td><td><code>#[query]</code>, <code>#[init]</code></td><td class="no">no</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Using the wrong one produces <code>expected &amp;mut WorkflowContext&lt;OrderWorkflow&gt;, found &amp;mut SyncWorkflowContext&lt;OrderWorkflow&gt;</code> pointing at the <code>#[workflow_methods]</code> attribute rather than at your handler. The SDK's own README shows the wrong type for sync signal handlers, so following the docs gets you this error.</p>
+
+  <h3><span class="chip c-edge">sharp edge</span>The <code>tokio</code> you know is banned</h3>
+  <p>No <code>tokio::spawn</code>, no <code>tokio::time::sleep</code>, no <code>tokio::select!</code>, no <code>tokio::sync</code> channels. Use <code>ctx.timer()</code> and the deterministic <code>workflows::{select!, join!, join_all}</code> wrappers. A runtime detector catches most violations, which is genuinely good &mdash; but see below for how it reports them.</p>
+</section>
+
+<section>
+  <p class="eyebrow">Peculiar runtime behavior</p>
+  <h2>A panic does not fail your workflow</h2>
+  <p class="lead">This is the finding I would most want to know before running Rust workflows in production, because it inverts normal Rust instincts. A panic in workflow code is caught by <code>catch_unwind</code> and converted into a <em>Workflow Task</em> failure &mdash; which the server retries indefinitely. Returning an error, by contrast, fails the Workflow Execution permanently.</p>
+
+  <figure>
+    <svg viewBox="0 0 820 300" role="img" aria-label="A panic in workflow code becomes a workflow task failure which the server retries forever, leaving the workflow stuck in Running. Returning an ApplicationFailure error instead fails the workflow execution terminally and returns the error to the caller.">
+      <defs>
+        <marker id="e1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--signal)"/>
+        </marker>
+        <marker id="e2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+        </marker>
+      </defs>
+
+      <line class="s-line s-dash" x1="410" y1="16" x2="410" y2="284"/>
+
+      <!-- left: panic -->
+      <text class="s-lbl-f" x="20" y="30">PANIC &middot; unwrap() ON None</text>
+      <rect class="s-box-f" x="20" y="44" width="360" height="46" rx="4"/>
+      <text class="s-sub" x="200" y="72" text-anchor="middle">panic!()  &mdash;  caught by catch_unwind</text>
+      <path class="s-line-f" d="M200,90 L200,116" marker-end="url(#e1)"/>
+      <rect class="s-box-f" x="20" y="126" width="360" height="46" rx="4"/>
+      <text class="s-sub" x="200" y="154" text-anchor="middle">Workflow TASK fails (not the execution)</text>
+      <path class="s-line-f" d="M200,172 L200,198" marker-end="url(#e1)"/>
+      <rect class="s-box-f" x="20" y="208" width="360" height="60" rx="4"/>
+      <text class="s-t" x="200" y="233" text-anchor="middle">retried forever</text>
+      <text class="s-sub" x="200" y="253" text-anchor="middle">stuck in Running &middot; burns worker capacity</text>
+      <path class="s-line-f" d="M362,238 L392,238 L392,149 L382,149" marker-end="url(#e1)"/>
+
+      <!-- right: Err -->
+      <text class="s-lbl-a" x="440" y="30">RETURN Err(ApplicationFailure)</text>
+      <rect class="s-box-a" x="440" y="44" width="360" height="46" rx="4"/>
+      <text class="s-sub" x="620" y="72" text-anchor="middle">Err(..) returned from #[run]</text>
+      <path class="s-line-a" d="M620,90 L620,116" marker-end="url(#e2)"/>
+      <rect class="s-box-a" x="440" y="126" width="360" height="46" rx="4"/>
+      <text class="s-sub" x="620" y="154" text-anchor="middle">Workflow EXECUTION fails</text>
+      <path class="s-line-a" d="M620,172 L620,198" marker-end="url(#e2)"/>
+      <rect class="s-box-a" x="440" y="208" width="360" height="60" rx="4"/>
+      <text class="s-t" x="620" y="233" text-anchor="middle">terminal</text>
+      <text class="s-sub" x="620" y="253" text-anchor="middle">error returned to get_result() caller</text>
+    </svg>
+    <figcaption><b>The retry-forever behavior is deliberate and often what you want</b> &mdash; it lets you deploy a fix and have stuck workflows heal themselves rather than losing them. The hazard is specific to Rust: <code>unwrap()</code>, <code>expect()</code> and slice indexing are idiomatic here in a way they are not in Python or Go, and a deterministic panic becomes a silent poison pill that never completes and never fails. Alert on workflow-task failure rate; it is not a metric you can ignore.</figcaption>
+  </figure>
+
+  <h3><span class="chip c-edge">sharp edge</span>Determinism errors surface one task late</h3>
+  <p>The nondeterminism detector watches async wake sources, and those fire asynchronously &mdash; so the workflow task that <em>introduced</em> the bad code completes normally and the <em>next</em> one fails. The stack you are shown is not where the problem is. Look at what the previous task started.</p>
+  <p>It also does not catch everything: <code>futures::select!</code> without <code>biased</code> randomizes poll order and passes undetected, as does any purely synchronous nondeterminism such as <code>SystemTime::now()</code> or <code>rand::random()</code>.</p>
+</section>
+
+<section>
+  <p class="eyebrow">Build and toolchain</p>
+  <h2>The macro layer leaks, and the binaries are enormous</h2>
+
+  <h3><span class="chip c-edge">sharp edge</span><code>protoc</code> is a hard build requirement</h3>
+  <p>A transitive dependency shells out to <code>protoc</code>. Without it the build dies in <code>prost-wkt-types</code> with a message that has nothing to do with your code. It is not called out prominently anywhere, and it is the first wall you hit. Your CI image needs <code>protobuf-compiler</code>.</p>
+
+  <h3><span class="chip c-edge">sharp edge</span>The macros expand to unhygienic paths</h3>
+  <p><code>#[activities]</code> and <code>#[workflow_methods]</code> generate code naming <code>temporalio_workflow</code>, <code>temporalio_common</code> and <code>futures</code> by absolute path. All three must be <em>direct</em> dependencies of your crate even though you never write <code>use</code> for them, or you get <code>could not find `temporalio_workflow` in the list of imported crates</code> pointing at the attribute. Three of the six compile errors I hit on first build were this.</p>
+
+  <h3><span class="chip c-edge">sharp edge</span>Macro errors point at the attribute, not your mistake</h3>
+  <p>Because everything is generated, diagnostics land on <code>#[activities]</code> rather than the offending method. Sealed traits make it worse &mdash; a wrong receiver produces a wall of <code>ExecutableActivity is a "sealed trait"</code> text and an unhelpful suggestion to use <code>UntypedActivity</code>. Visibility leaks the same way: a private <code>#[query]</code> handler fails at the <em>call site</em> in another crate with "associated constant `status` is private", naming a constant you never wrote.</p>
+
+  <h3><span class="chip c-edge">sharp edge</span>Rules the macros enforce silently</h3>
+  <ul>
+    <li>Stateful activity receivers must be exactly <code>self: Arc&lt;Self&gt;</code>. Not <code>&amp;self</code>, not <code>self</code>.</li>
+    <li>Parameter order is fixed: <code>self</code>, then <code>ActivityContext</code>, then your input.</li>
+    <li>Handlers reachable from another crate must be <code>pub</code>.</li>
+    <li>If a workflow has an <code>#[init]</code>, the workflow input goes there and <em>not</em> to <code>#[run]</code>. Adding an <code>#[init]</code> later silently changes <code>#[run]</code>'s signature.</li>
+  </ul>
+
+  <h3><span class="chip c-struct">structural</span>Footprint</h3>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Measure</th><th>Observed</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td>Crates in lockfile</td><td>317</td><td>for a hello-world worker + starter</td></tr>
+      <tr><td>Debug binary</td><td>348 MB</td><td>per binary; protos and tonic dominate</td></tr>
+      <tr><td>Workspace build (deps warm)</td><td>2 m 22 s</td><td>cold is several minutes</td></tr>
+      <tr><td>Incremental <code>cargo check</code></td><td>~1 s</td><td>the edit loop is fine</td></tr>
+      <tr><td>Incremental <code>cargo build</code></td><td>28 s</td><td>linking dominates; this is your run loop</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Type-check feedback is fast, but every time you actually want to <em>run</em> the worker you pay half a minute of linking. Worth configuring a faster linker (<code>lld</code> or <code>mold</code>) on day one.</p>
+</section>
+
+<section>
+  <p class="eyebrow">Gaps</p>
+  <h2>What is missing or still gated</h2>
+
+  <h3><span class="chip c-edge">sharp edge</span>No time-skipping test environment</h3>
+  <p>Other Temporal SDKs give you a test server that fast-forwards timers, so a workflow that sleeps 30 days can be tested in milliseconds. The Rust SDK's <code>WorkflowEnvironment</code> offers only <code>from_client</code> and <code>start_local</code> &mdash; a real dev server, running in real time. The underlying <code>TestServerConfig</code> and time-skipping RPCs do exist in <code>sdk-core</code>, so this is a surface gap rather than a missing capability, but reaching it means dropping below the ergonomic API. Until then, testing long-timer logic means restructuring so durations are injectable.</p>
+  <p>Note too that <code>start_local</code> <em>downloads the Temporal CLI</em> on first use. That is a network dependency inside your test suite &mdash; it failed outright in this sandbox &mdash; so cache the executable explicitly in CI.</p>
+
+  <h3><span class="chip c-edge">sharp edge</span>Nexus is half-present</h3>
+  <p>A workflow can <em>start</em> Nexus operations (behind the <code>experimental</code> feature), but you cannot define Nexus handlers &mdash; the README says this "will be added later", and the worker hardcodes <code>enable_nexus: false</code>. If cross-namespace or cross-team service boundaries are part of your design, Rust cannot serve them yet.</p>
+
+  <h3><span class="chip c-struct">structural</span>The <code>experimental</code> feature gate</h3>
+  <p>Plugins, Nexus options, patch-activation callbacks and parts of the interceptor API are all behind <code>experimental</code>, which the crate documents as APIs that "may change or be removed". Note the gate itself was <em>introduced</em> in 0.7.0 &mdash; APIs previously available unconditionally now require opting in, which was itself a breaking change.</p>
+
+  <h3><span class="chip c-plus">in your favor</span>The polyglot escape hatch</h3>
+  <p>Temporal is language-agnostic on the wire: activity and workflow types are strings, payloads are bytes. <code>UntypedActivity::new("name")</code>, <code>UntypedSignal</code>, <code>UntypedQuery</code> and friends let Rust participate in a system whose workflows live in a more mature SDK &mdash; or let a Go workflow schedule activities onto a task queue served by Rust workers. If the API churn worries you but you want Rust for compute-heavy activities, this is a genuine middle path: keep orchestration in a stable SDK, put the Rust where it earns its keep.</p>
+</section>
+
+<section>
+  <p class="eyebrow">Credit where due</p>
+  <h2>What is genuinely good</h2>
+  <p class="lead">A fair evaluation has to say what works, and several things here are better than the equivalent in Temporal's older SDKs.</p>
+  <ul>
+    <li><strong>Compile-time-checked workflow references.</strong> <code>ctx.execute_activity(OrderActivities::charge_payment, input, opts)</code> takes the method, not a string. Input and output types are checked, and renaming an activity is a compiler error rather than a production surprise. This is a real advantage over the stringly-typed SDKs.</li>
+    <li><strong>The nondeterminism detector.</strong> Catching <code>tokio::spawn</code> and stray channel wakes at runtime is something other SDKs largely do not do. Late reporting is a wart on a feature that should not exist at all in a language without it.</li>
+    <li><strong>Dependency injection is clean.</strong> <code>register_activities(MyActivities::new(deps))</code> and <code>self: Arc&lt;Self&gt;</code>. No container, no registry, no framework &mdash; and the <code>ActivityEnvironment</code> test harness exercises that exact path, so tests are not mocking a different code path than production uses.</li>
+    <li><strong>Production plumbing is already there.</strong> Worker deployment versioning, payload codecs for encryption, Prometheus and OpenTelemetry exporters, a replay harness for CI. These are inherited from Core rather than waiting on the Rust surface.</li>
+    <li><strong>The examples directory is excellent.</strong> Fourteen worked examples covering sagas, cancellation, child workflows, schedules, updatable timers, polling and continue-as-new.</li>
+  </ul>
+
+  <div class="rule">
+    <span class="tag">Documentation caveat</span>
+    <p>Trust <code>crates/sdk/examples/</code> over the prose. The SDK README has drifted: it shows <code>WorkflowOptions</code> (really <code>WorkflowStartOptions</code>), <code>GetWorkflowResultOptions</code> (really <code>WorkflowGetResultOptions</code>), <code>execute_activity(..)?.await?</code> (there is no <code>?</code> before the await), and the wrong context type for sync signal handlers. Every one of those cost a compile cycle.</p>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">The decision</p>
+  <h2>Who should and should not take this on</h2>
+  <div class="fit">
+    <div class="fitcard yes-c">
+      <h3>GOOD FIT</h3>
+      <ul>
+        <li>Your stack is already Rust end to end, and adding another language runtime is the bigger cost.</li>
+        <li>You control the deploy cadence and can absorb a breaking upgrade every few weeks.</li>
+        <li>Your team is comfortable reading SDK source when docs disagree with the compiler.</li>
+        <li>The workflows are internal orchestration you own, not a published contract.</li>
+        <li>You want compile-time-checked orchestration badly enough to pay for it.</li>
+      </ul>
+    </div>
+    <div class="fitcard no-c">
+      <h3>POOR FIT</h3>
+      <ul>
+        <li>Another Temporal SDK is genuinely available to you &mdash; take the mature one.</li>
+        <li>You need API stability guarantees this quarter, or long support windows.</li>
+        <li>Your workflows depend on long timers and you need fast tests for them today.</li>
+        <li>You need to serve Nexus handlers.</li>
+        <li>Small team with no capacity to track a fast-moving preview API.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="rule good">
+    <span class="tag">If you proceed</span>
+    <p>Pin exact versions. Put <code>protobuf-compiler</code> and a fast linker in the build image. Wrap SDK types behind your own interfaces so churn hits one module. Add replay tests against recorded histories to CI before your first production change. And alert on workflow-task failure rate from day one &mdash; that is where panics hide.</p>
+  </div>
+</section>
+
+<footer>
+  Findings from building the <code>hello-world</code> and <code>order-pipeline</code> crates in this repository<br>
+  against temporalio-sdk 0.7.0 on rustc 1.94, September 2026. Measurements taken on that build.<br>
+  <a href="https://github.com/temporalio/sdk-rust">github.com/temporalio/sdk-rust</a>
+</footer>
+
+</div>
+</body>
+</html>
