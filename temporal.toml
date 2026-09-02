@@ -1,0 +1,26 @@
+# Connection config for the Temporal client.
+#
+# Both binaries call `ClientOptions::load_from_config(...)`, which reads this
+# file plus TEMPORAL_* environment variables. Env vars win over the file, so the
+# same build runs against a local dev server or Temporal Cloud unchanged.
+#
+# Lookup order for this file:
+#   1. $TEMPORAL_CONFIG_FILE
+#   2. $XDG_CONFIG_HOME/temporalio/temporal.toml (~/.config/... on Linux)
+# So to use *this* file, run:
+#   export TEMPORAL_CONFIG_FILE=$PWD/temporal.toml
+
+[profile.default]
+address = "localhost:7233"
+namespace = "default"
+
+# --- Temporal Cloud would look like this -----------------------------------
+# [profile.prod]
+# address = "your-ns.a1b2c.tmprl.cloud:7233"
+# namespace = "your-ns.a1b2c"
+#
+# [profile.prod.tls]
+# client_cert_path = "/path/to/client.pem"
+# client_key_path  = "/path/to/client.key"
+#
+# Select it with: export TEMPORAL_PROFILE=prod

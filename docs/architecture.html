@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How Temporal Survives a Crash</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --ground:#EEF2F0;
+  --surface:#FFFFFF;
+  --sunken:#E4EAE7;
+  --ink:#151E1B;
+  --muted:#5C6B66;
+  --accent:#0E6A57;
+  --accent-soft:#D7E8E3;
+  --signal:#B4501F;
+  --signal-soft:#F4E0D6;
+  --line:#C8D3CF;
+  --line-strong:#A9B8B3;
+  --sans:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0C1211;
+    --surface:#141D1A;
+    --sunken:#1A2522;
+    --ink:#E2EAE7;
+    --muted:#98A8A3;
+    --accent:#54C4A6;
+    --accent-soft:#173029;
+    --signal:#E28A5B;
+    --signal-soft:#2E1F16;
+    --line:#28352F;
+    --line-strong:#3C4E47;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0C1211;
+  --surface:#141D1A;
+  --sunken:#1A2522;
+  --ink:#E2EAE7;
+  --muted:#98A8A3;
+  --accent:#54C4A6;
+  --accent-soft:#173029;
+  --signal:#E28A5B;
+  --signal-soft:#2E1F16;
+  --line:#28352F;
+  --line-strong:#3C4E47;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--ground);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:16px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:0 28px 96px}
+
+/* ---------- masthead ---------- */
+.masthead{
+  border-bottom:1px solid var(--line);
+  padding:56px 0 36px;
+  display:grid;
+  gap:22px;
+}
+.kicker{
+  font-family:var(--mono);
+  font-size:12px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--accent);
+  margin:0;
+}
+h1{
+  font-size:clamp(34px,5.4vw,58px);
+  line-height:1.04;
+  letter-spacing:-.028em;
+  font-weight:600;
+  margin:0;
+  max-width:16ch;
+  text-wrap:balance;
+}
+.standfirst{
+  font-size:19px;
+  line-height:1.55;
+  color:var(--muted);
+  margin:0;
+  max-width:62ch;
+}
+.standfirst strong{color:var(--ink);font-weight:600}
+
+/* ---------- prose ---------- */
+section{padding:52px 0;border-bottom:1px solid var(--line)}
+section:last-of-type{border-bottom:0}
+.eyebrow{
+  font-family:var(--mono);
+  font-size:11.5px;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--muted);
+  margin:0 0 12px;
+}
+h2{
+  font-size:clamp(24px,3vw,32px);
+  line-height:1.15;
+  letter-spacing:-.02em;
+  font-weight:600;
+  margin:0 0 18px;
+  max-width:22ch;
+  text-wrap:balance;
+}
+p{margin:0 0 18px;max-width:66ch}
+p:last-child{margin-bottom:0}
+code{
+  font-family:var(--mono);
+  font-size:.88em;
+  background:var(--sunken);
+  border:1px solid var(--line);
+  border-radius:3px;
+  padding:.1em .34em;
+}
+.lead{font-size:17.5px}
+
+/* ---------- figures ---------- */
+figure{
+  margin:34px 0 8px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:6px;
+  padding:26px 26px 18px;
+  overflow-x:auto;
+}
+figure svg{display:block;width:100%;max-width:100%;height:auto;color:var(--ink)}
+figcaption{
+  margin-top:16px;
+  padding-top:14px;
+  border-top:1px solid var(--line);
+  font-size:13.5px;
+  line-height:1.5;
+  color:var(--muted);
+  max-width:78ch;
+}
+figcaption b{color:var(--ink);font-weight:600}
+
+/* svg helpers */
+.s-box{fill:var(--sunken);stroke:var(--line-strong);stroke-width:1.25}
+.s-box-a{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.25}
+.s-box-f{fill:var(--signal-soft);stroke:var(--signal);stroke-width:1.25}
+.s-t{font-family:var(--sans);font-size:14px;font-weight:600;fill:var(--ink)}
+.s-sub{font-family:var(--mono);font-size:10.5px;fill:var(--muted)}
+.s-lbl{font-family:var(--mono);font-size:11px;fill:var(--muted)}
+.s-lbl-a{font-family:var(--mono);font-size:11px;fill:var(--accent)}
+.s-lbl-f{font-family:var(--mono);font-size:11px;fill:var(--signal)}
+.s-line{stroke:var(--line-strong);stroke-width:1.5;fill:none}
+.s-line-a{stroke:var(--accent);stroke-width:1.75;fill:none}
+.s-line-f{stroke:var(--signal);stroke-width:1.75;fill:none}
+.s-dash{stroke-dasharray:5 4}
+
+/* ---------- callout ---------- */
+.rule{
+  margin:30px 0 0;
+  border-left:3px solid var(--accent);
+  background:var(--surface);
+  padding:18px 22px;
+  border-radius:0 5px 5px 0;
+}
+.rule p{margin:0;font-size:17px}
+.rule .tag{
+  display:block;
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--accent);
+  margin-bottom:7px;
+}
+
+/* ---------- table ---------- */
+.tablewrap{overflow-x:auto;margin-top:26px}
+table{border-collapse:collapse;width:100%;min-width:520px;font-size:14.5px}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.11em;
+  text-transform:uppercase;
+  color:var(--muted);
+  font-weight:500;
+  border-bottom:1px solid var(--line-strong);
+}
+td code{background:none;border:0;padding:0;color:var(--accent)}
+.no{color:var(--signal);font-family:var(--mono);font-size:13px}
+.yes{color:var(--accent);font-family:var(--mono);font-size:13px}
+
+/* ---------- footer ---------- */
+footer{
+  padding:36px 0 0;
+  border-top:1px solid var(--line);
+  font-size:13.5px;
+  color:var(--muted);
+  font-family:var(--mono);
+  line-height:1.7;
+}
+footer a{color:var(--accent)}
+@media (prefers-reduced-motion:no-preference){
+  a{transition:opacity .15s ease}
+}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+  <p class="kicker">Temporal &middot; Rust SDK 0.7 &middot; Public Preview</p>
+  <h1>How Temporal survives a crash</h1>
+  <p class="standfirst">Temporal lets you write a function that <strong>cannot lose its place</strong>. Kill the process mid-execution and another one resumes at the exact line it stopped on &mdash; hours or weeks later, local variables intact. These five diagrams show the machinery that makes that true, and what it costs you in exchange.</p>
+</header>
+
+<section>
+  <p class="eyebrow">Who runs what</p>
+  <h2>The server never runs your code</h2>
+  <p class="lead">Three processes are involved, and almost every first-day confusion comes from mixing up which does what. The Temporal Server is a database and a queue &mdash; it stores Event History and hands out tasks. Your <em>Worker</em> is the only thing that executes Rust.</p>
+
+  <figure>
+    <svg viewBox="0 0 860 200" role="img" aria-label="A Client calls start_workflow on the Temporal Server and later fetches the result; a separate Worker process polls the server for tasks and executes the workflow and activity code.">
+      <defs>
+        <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--line-strong)"/>
+        </marker>
+        <marker id="a1a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+        </marker>
+      </defs>
+
+      <rect class="s-box" x="30" y="55" width="170" height="90" rx="4"/>
+      <text class="s-t" x="115" y="93" text-anchor="middle">Client</text>
+      <text class="s-sub" x="115" y="115" text-anchor="middle">your API handler</text>
+
+      <rect class="s-box-a" x="330" y="55" width="200" height="90" rx="4"/>
+      <text class="s-t" x="430" y="88" text-anchor="middle">Temporal Server</text>
+      <text class="s-sub" x="430" y="108" text-anchor="middle">Event History</text>
+      <text class="s-sub" x="430" y="124" text-anchor="middle">+ task queues</text>
+
+      <rect class="s-box" x="660" y="55" width="170" height="90" rx="4"/>
+      <text class="s-t" x="745" y="93" text-anchor="middle">Worker</text>
+      <text class="s-sub" x="745" y="115" text-anchor="middle">your Rust code</text>
+
+      <line class="s-line" x1="200" y1="88" x2="322" y2="88" marker-end="url(#a1)"/>
+      <text class="s-lbl" x="261" y="80" text-anchor="middle">start_workflow</text>
+
+      <line class="s-line" x1="330" y1="122" x2="208" y2="122" marker-end="url(#a1)"/>
+      <text class="s-lbl" x="269" y="140" text-anchor="middle">get_result</text>
+
+      <line class="s-line" x1="660" y1="88" x2="538" y2="88" marker-end="url(#a1)"/>
+      <text class="s-lbl" x="599" y="80" text-anchor="middle">poll queue</text>
+
+      <line class="s-line-a" x1="530" y1="122" x2="652" y2="122" marker-end="url(#a1a)"/>
+      <text class="s-lbl-a" x="591" y="140" text-anchor="middle">tasks</text>
+
+      <text class="s-sub" x="430" y="175" text-anchor="middle">stores history &middot; schedules work &middot; executes nothing</text>
+    </svg>
+    <figcaption><b>Both the Client and the Worker connect outward to the server.</b> The Worker polls; the server never dials in. That is why a Worker behind a firewall works fine &mdash; and why, if the queue name in your Starter does not exactly match the one in your Worker, the workflow starts and then sits in <code>Running</code> forever with nothing to pick it up.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <p class="eyebrow">The core mechanism</p>
+  <h2>Recovery is replay, not snapshots</h2>
+  <p class="lead">Temporal does not serialize your workflow's memory. To recover, it <em>re-runs your function from the top</em> and feeds it the recorded results of everything it did last time. Your code fast-forwards through work it has already done, then continues past the crash.</p>
+
+  <figure>
+    <svg viewBox="0 0 860 330" role="img" aria-label="Attempt one records three history events then the worker dies. Attempt two replays those same three events without re-executing them, then continues by executing new events through to workflow completion.">
+      <defs>
+        <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--line-strong)"/>
+        </marker>
+        <marker id="a2f" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--signal)"/>
+        </marker>
+      </defs>
+
+      <!-- lane 1 -->
+      <text class="s-lbl" x="20" y="48">ATTEMPT 1</text>
+      <line class="s-line" x1="20" y1="88" x2="700" y2="88"/>
+      <circle cx="120" cy="88" r="7" fill="var(--accent)"/>
+      <circle cx="300" cy="88" r="7" fill="var(--accent)"/>
+      <circle cx="480" cy="88" r="7" fill="var(--accent)"/>
+      <text class="s-sub" x="120" y="112" text-anchor="middle">WorkflowStarted</text>
+      <text class="s-sub" x="300" y="112" text-anchor="middle">ActivityScheduled</text>
+      <text class="s-sub" x="480" y="112" text-anchor="middle">ActivityCompleted</text>
+      <line class="s-line-f" x1="640" y1="74" x2="668" y2="102"/>
+      <line class="s-line-f" x1="668" y1="74" x2="640" y2="102"/>
+      <text class="s-lbl-f" x="654" y="122" text-anchor="middle">worker dies</text>
+
+      <!-- transition -->
+      <path class="s-line-f s-dash" d="M654,138 L654,180 L120,180 L120,208" marker-end="url(#a2f)"/>
+      <text class="s-lbl-f" x="390" y="172" text-anchor="middle">a different worker picks up the same run</text>
+
+      <!-- lane 2 -->
+      <text class="s-lbl" x="20" y="248">ATTEMPT 2</text>
+      <line class="s-line" x1="20" y1="248" x2="840" y2="248"/>
+      <circle cx="120" cy="248" r="7" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+      <circle cx="300" cy="248" r="7" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+      <circle cx="480" cy="248" r="7" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+      <circle cx="640" cy="248" r="7" fill="var(--accent)"/>
+      <circle cx="790" cy="248" r="7" fill="var(--accent)"/>
+      <text class="s-sub" x="120" y="272" text-anchor="middle">WorkflowStarted</text>
+      <text class="s-sub" x="300" y="272" text-anchor="middle">ActivityScheduled</text>
+      <text class="s-sub" x="480" y="272" text-anchor="middle">ActivityCompleted</text>
+      <text class="s-sub" x="640" y="272" text-anchor="middle">TimerStarted</text>
+      <text class="s-sub" x="790" y="272" text-anchor="middle">WorkflowCompleted</text>
+
+      <line class="s-line" x1="120" y1="222" x2="480" y2="222"/>
+      <line class="s-line" x1="120" y1="216" x2="120" y2="228"/>
+      <line class="s-line" x1="480" y1="216" x2="480" y2="228"/>
+      <text class="s-lbl" x="300" y="210" text-anchor="middle">replayed &mdash; results read from history</text>
+
+      <line class="s-line-a" x1="560" y1="222" x2="820" y2="222"/>
+      <line class="s-line-a" x1="560" y1="216" x2="560" y2="228"/>
+      <text class="s-lbl-a" x="690" y="210" text-anchor="middle">executed for real</text>
+
+      <!-- legend -->
+      <circle cx="28" cy="308" r="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/>
+      <text class="s-lbl" x="44" y="312">replayed (your activity does NOT run again)</text>
+      <circle cx="424" cy="308" r="6" fill="var(--accent)"/>
+      <text class="s-lbl" x="440" y="312">executed now</text>
+    </svg>
+    <figcaption><b>This is why workflow code must be deterministic.</b> Replay only works if the same history produces the same sequence of calls. A <code>SystemTime::now()</code>, a <code>rand::random()</code>, or a <code>tokio::spawn</code> in workflow code makes attempt 2 diverge from attempt 1, and the run wedges. It is also why a 30-day <code>ctx.timer()</code> is free: the workflow is evicted from memory while it waits.</figcaption>
+  </figure>
+
+  <div class="rule">
+    <span class="tag">The trade</span>
+    <p>You get crash-proof state for free. You give up clocks, randomness, threads and I/O inside workflow code &mdash; all of it moves into activities.</p>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Failure</p>
+  <h2>There is no rollback, so you compensate</h2>
+  <p class="lead">Once an activity has charged a card, no framework can un-charge it. When a later step fails you must actively undo the earlier ones, in reverse order &mdash; the saga pattern. The <code>order-pipeline</code> crate does exactly this.</p>
+
+  <figure>
+    <svg viewBox="0 0 860 300" role="img" aria-label="A forward path reserves inventory, charges payment, then ships. If shipping fails, compensating activities run in reverse order: refund the payment, then release the inventory.">
+      <defs>
+        <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+        </marker>
+        <marker id="a3f" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--signal)"/>
+        </marker>
+      </defs>
+
+      <text class="s-lbl-a" x="20" y="42">FORWARD PATH</text>
+
+      <rect class="s-box-a" x="20" y="62" width="180" height="62" rx="4"/>
+      <text class="s-t" x="110" y="88" text-anchor="middle">reserve_inventory</text>
+      <text class="s-sub" x="110" y="108" text-anchor="middle">&rarr; resv_8f21</text>
+
+      <rect class="s-box-a" x="255" y="62" width="180" height="62" rx="4"/>
+      <text class="s-t" x="345" y="88" text-anchor="middle">charge_payment</text>
+      <text class="s-sub" x="345" y="108" text-anchor="middle">&rarr; ch_4999</text>
+
+      <rect class="s-box-f" x="490" y="62" width="180" height="62" rx="4"/>
+      <text class="s-t" x="580" y="88" text-anchor="middle">ship_order</text>
+      <text class="s-sub" x="580" y="108" text-anchor="middle">fails after 3 tries</text>
+
+      <rect class="s-box" x="725" y="62" width="115" height="62" rx="4" opacity="0.45"/>
+      <text class="s-t" x="782" y="98" text-anchor="middle" opacity="0.5">completed</text>
+
+      <line class="s-line-a" x1="200" y1="93" x2="247" y2="93" marker-end="url(#a3)"/>
+      <line class="s-line-a" x1="435" y1="93" x2="482" y2="93" marker-end="url(#a3)"/>
+      <line class="s-line s-dash" x1="670" y1="93" x2="717" y2="93"/>
+
+      <!-- failure drop -->
+      <path class="s-line-f" d="M580,124 L580,168" marker-end="url(#a3f)"/>
+      <text class="s-lbl-f" x="596" y="152">retries exhausted</text>
+
+      <text class="s-lbl-f" x="20" y="205">COMPENSATE &mdash; REVERSE ORDER</text>
+
+      <rect class="s-box-f" x="255" y="222" width="180" height="56" rx="4"/>
+      <text class="s-t" x="345" y="246" text-anchor="middle">refund_payment</text>
+      <text class="s-sub" x="345" y="264" text-anchor="middle">ch_4999</text>
+
+      <rect class="s-box-f" x="20" y="222" width="180" height="56" rx="4"/>
+      <text class="s-t" x="110" y="246" text-anchor="middle">release_inventory</text>
+      <text class="s-sub" x="110" y="264" text-anchor="middle">resv_8f21</text>
+
+      <path class="s-line-f" d="M580,180 L580,250 L443,250" marker-end="url(#a3f)"/>
+      <line class="s-line-f" x1="255" y1="250" x2="208" y2="250" marker-end="url(#a3f)"/>
+    </svg>
+    <figcaption><b>Compensations must be more reliable than the forward path.</b> A failed refund is money lost, so give them a generous retry policy and make them idempotent too. The practical rule in code: the moment you take an action that would need undoing, stop using <code>?</code> and handle the error with an explicit <code>match</code>.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <p class="eyebrow">Exactly-once, honestly</p>
+  <h2>Where the idempotency key comes from</h2>
+  <p class="lead">Temporal guarantees your activity is <em>attempted</em> at least once &mdash; not that it runs exactly once. A worker can complete a charge and die before reporting success; the retry then charges again. Preventing that is your job, and it comes down to <em>where the key is computed</em>.</p>
+
+  <figure>
+    <svg viewBox="0 0 860 350" role="img" aria-label="On the left, the workflow derives an idempotency key from the workflow ID so all three activity attempts send the same key and the gateway records one charge. On the right, the activity generates a fresh UUID per attempt, so three different keys produce three charges.">
+      <defs>
+        <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+        </marker>
+        <marker id="a4f" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--signal)"/>
+        </marker>
+      </defs>
+
+      <line class="s-line s-dash" x1="430" y1="20" x2="430" y2="330"/>
+
+      <!-- LEFT -->
+      <text class="s-lbl-a" x="20" y="34">DERIVED IN THE WORKFLOW &nbsp;&check;</text>
+      <rect class="s-box-a" x="20" y="50" width="380" height="52" rx="4"/>
+      <text class="s-sub" x="210" y="72" text-anchor="middle">let key = format!("{}:charge", ctx.workflow_id());</text>
+      <text class="s-sub" x="210" y="90" text-anchor="middle">recorded in history &middot; identical on every replay</text>
+
+      <path class="s-line-a" d="M210,102 L210,128" marker-end="url(#a4)"/>
+
+      <rect class="s-box" x="20" y="138" width="120" height="46" rx="4"/>
+      <text class="s-sub" x="80" y="158" text-anchor="middle">attempt 1</text>
+      <text class="s-sub" x="80" y="174" text-anchor="middle">ord-42:charge</text>
+      <rect class="s-box" x="150" y="138" width="120" height="46" rx="4"/>
+      <text class="s-sub" x="210" y="158" text-anchor="middle">attempt 2</text>
+      <text class="s-sub" x="210" y="174" text-anchor="middle">ord-42:charge</text>
+      <rect class="s-box" x="280" y="138" width="120" height="46" rx="4"/>
+      <text class="s-sub" x="340" y="158" text-anchor="middle">attempt 3</text>
+      <text class="s-sub" x="340" y="174" text-anchor="middle">ord-42:charge</text>
+
+      <path class="s-line-a" d="M80,184 L80,214 L210,214 L210,238" marker-end="url(#a4)"/>
+      <path class="s-line-a" d="M210,184 L210,214"/>
+      <path class="s-line-a" d="M340,184 L340,214 L210,214"/>
+
+      <rect class="s-box-a" x="90" y="248" width="240" height="56" rx="4"/>
+      <text class="s-t" x="210" y="272" text-anchor="middle">1 charge</text>
+      <text class="s-sub" x="210" y="291" text-anchor="middle">gateway dedupes on the key</text>
+
+      <!-- RIGHT -->
+      <text class="s-lbl-f" x="460" y="34">GENERATED IN THE ACTIVITY &nbsp;&cross;</text>
+      <rect class="s-box-f" x="460" y="50" width="380" height="52" rx="4"/>
+      <text class="s-sub" x="650" y="72" text-anchor="middle">let key = Uuid::new_v4();</text>
+      <text class="s-sub" x="650" y="90" text-anchor="middle">fresh value on every attempt</text>
+
+      <path class="s-line-f" d="M650,102 L650,128" marker-end="url(#a4f)"/>
+
+      <rect class="s-box" x="460" y="138" width="120" height="46" rx="4"/>
+      <text class="s-sub" x="520" y="158" text-anchor="middle">attempt 1</text>
+      <text class="s-sub" x="520" y="174" text-anchor="middle">a1f3-...</text>
+      <rect class="s-box" x="590" y="138" width="120" height="46" rx="4"/>
+      <text class="s-sub" x="650" y="158" text-anchor="middle">attempt 2</text>
+      <text class="s-sub" x="650" y="174" text-anchor="middle">7c02-...</text>
+      <rect class="s-box" x="720" y="138" width="120" height="46" rx="4"/>
+      <text class="s-sub" x="780" y="158" text-anchor="middle">attempt 3</text>
+      <text class="s-sub" x="780" y="174" text-anchor="middle">e59b-...</text>
+
+      <path class="s-line-f" d="M520,184 L520,214 L650,214 L650,238" marker-end="url(#a4f)"/>
+      <path class="s-line-f" d="M650,184 L650,214"/>
+      <path class="s-line-f" d="M780,184 L780,214 L650,214"/>
+
+      <rect class="s-box-f" x="530" y="248" width="240" height="56" rx="4"/>
+      <text class="s-t" x="650" y="272" text-anchor="middle">3 charges</text>
+      <text class="s-sub" x="650" y="291" text-anchor="middle">nothing to dedupe against</text>
+    </svg>
+    <figcaption><b>Derive the key in the workflow, pass it into the activity.</b> Workflow-derived values are recorded in history, so attempt&nbsp;3 sees the same key attempt&nbsp;1 did. <code>ctx.uuid4()</code> and <code>ctx.random()</code> are safe for this &mdash; they are seeded deterministically from the run. <code>Uuid::new_v4()</code> is not, and will also break replay.</figcaption>
+  </figure>
+
+  <div class="rule">
+    <span class="tag">Same trick, one level up</span>
+    <p>Derive the <em>Workflow ID</em> from your business key &mdash; <code>order-{id}</code> &mdash; and a double-clicked button or a redelivered queue message starts one workflow, not two. That is free server-side deduplication.</p>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Retries</p>
+  <h2>The default is to retry forever</h2>
+  <p class="lead">An activity with no retry policy is retried indefinitely with exponential backoff. For a flaky dependency that is exactly right. For a malformed request it means retrying a guaranteed-failing call until a human notices &mdash; so classify your errors.</p>
+
+  <figure>
+    <svg viewBox="0 0 860 260" role="img" aria-label="A timeline showing three activity attempts separated by growing backoff intervals, with start-to-close bounding each attempt, heartbeat ticks inside the third, and schedule-to-close bounding the whole sequence.">
+      <defs>
+        <marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--line-strong)"/>
+        </marker>
+      </defs>
+
+      <!-- schedule_to_close bracket -->
+      <path class="s-line" d="M40,44 L40,32 L820,32 L820,44"/>
+      <text class="s-lbl" x="430" y="24" text-anchor="middle">schedule_to_close &mdash; budget for everything, retries included</text>
+
+      <!-- attempts -->
+      <rect class="s-box-f" x="40" y="96" width="150" height="46" rx="3"/>
+      <text class="s-sub" x="115" y="118" text-anchor="middle">attempt 1</text>
+      <text class="s-sub" x="115" y="134" text-anchor="middle">timeout</text>
+
+      <rect class="s-box-f" x="270" y="96" width="150" height="46" rx="3"/>
+      <text class="s-sub" x="345" y="118" text-anchor="middle">attempt 2</text>
+      <text class="s-sub" x="345" y="134" text-anchor="middle">503 from gateway</text>
+
+      <rect class="s-box-a" x="580" y="96" width="240" height="46" rx="3"/>
+      <text class="s-sub" x="700" y="118" text-anchor="middle">attempt 3 &mdash; succeeds</text>
+      <text class="s-sub" x="700" y="134" text-anchor="middle">heartbeats every 5s</text>
+
+      <!-- heartbeat ticks -->
+      <line class="s-line-a" x1="620" y1="88" x2="620" y2="96"/>
+      <line class="s-line-a" x1="660" y1="88" x2="660" y2="96"/>
+      <line class="s-line-a" x1="700" y1="88" x2="700" y2="96"/>
+      <line class="s-line-a" x1="740" y1="88" x2="740" y2="96"/>
+      <line class="s-line-a" x1="780" y1="88" x2="780" y2="96"/>
+      <text class="s-lbl-a" x="700" y="80" text-anchor="middle">heartbeat_timeout &mdash; max gap between ticks</text>
+
+      <!-- backoff gaps -->
+      <line class="s-line s-dash" x1="190" y1="119" x2="262" y2="119" marker-end="url(#a5)"/>
+      <text class="s-lbl" x="226" y="168" text-anchor="middle">1s</text>
+      <line class="s-line s-dash" x1="420" y1="119" x2="572" y2="119" marker-end="url(#a5)"/>
+      <text class="s-lbl" x="496" y="168" text-anchor="middle">2s</text>
+      <text class="s-lbl" x="360" y="188" text-anchor="middle">backoff &times; 2.0 each time, capped at maximum_interval</text>
+
+      <!-- start_to_close bracket -->
+      <path class="s-line" d="M40,214 L40,226 L190,226 L190,214"/>
+      <text class="s-lbl" x="115" y="244" text-anchor="middle">start_to_close</text>
+      <text class="s-lbl" x="180" y="244">&mdash; budget for ONE attempt; always set this one</text>
+    </svg>
+    <figcaption><b>Timeouts and retries are one mechanism.</b> Without a <code>heartbeat_timeout</code>, a worker that dies mid-activity is not noticed until the whole <code>start_to_close</code> budget elapses &mdash; five minutes of nothing. With one, it is noticed in seconds, and the retry resumes from the last heartbeat instead of restarting.</figcaption>
+  </figure>
+
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Inside a workflow</th><th>Allowed?</th><th>Use instead</th></tr></thead>
+    <tbody>
+      <tr><td><code>SystemTime::now()</code></td><td class="no">no</td><td><code>ctx.workflow_time()</code></td></tr>
+      <tr><td><code>Uuid::new_v4()</code>, <code>rand::random()</code></td><td class="no">no</td><td><code>ctx.uuid4()</code>, <code>ctx.random()</code></td></tr>
+      <tr><td><code>tokio::time::sleep</code></td><td class="no">no</td><td><code>ctx.timer(d)</code></td></tr>
+      <tr><td><code>tokio::spawn</code>, <code>tokio::select!</code></td><td class="no">no</td><td><code>workflows::{join!, select!}</code></td></tr>
+      <tr><td>HTTP, SQL, file I/O</td><td class="no">no</td><td>an activity</td></tr>
+      <tr><td>Mutating the workflow struct</td><td class="yes">yes</td><td><code>ctx.state_mut(..)</code></td></tr>
+      <tr><td>Awaiting activities and timers</td><td class="yes">yes</td><td>&mdash;</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p style="margin-top:22px">The SDK ships a runtime nondeterminism detector that catches most of the &ldquo;no&rdquo; rows. One catch: because it watches async wake sources, it reports the failure on the <em>next</em> workflow task, not the one that introduced the bad code. Look at what the previous task started, not the line the error points at.</p>
+</section>
+
+<footer>
+  Companion to the <code>hello-world</code> and <code>order-pipeline</code> crates in this repository.<br>
+  temporalio-sdk 0.7.0 &mdash; Public Preview; the API will change before 1.0.<br>
+  <a href="https://github.com/temporalio/sdk-rust">github.com/temporalio/sdk-rust</a>
+</footer>
+
+</div>
+</body>
+</html>

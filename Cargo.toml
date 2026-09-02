@@ -1,0 +1,30 @@
+[workspace]
+resolver = "3"
+members = ["crates/hello-world", "crates/order-pipeline"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+# One place to pin the Temporal stack. All four crates are released together and
+# must stay on the same version -- mixing them will not compile.
+[workspace.dependencies]
+temporalio-sdk = "0.7.0"
+temporalio-client = "0.7.0"
+temporalio-common = "0.7.0"
+temporalio-macros = "0.7.0"
+# Required as *direct* dependencies even though you never `use` them yourself:
+# the `#[activities]` / `#[workflow_methods]` macros expand to code that names
+# `temporalio_workflow`, `temporalio_common` and `futures` by absolute path.
+temporalio-workflow = "0.7.0"
+futures = "0.3"
+
+anyhow = "1"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
