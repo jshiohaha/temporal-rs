@@ -194,8 +194,29 @@ a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   <h2>Workflow code is not idiomatic async Rust</h2>
   <p class="lead">This is the part most likely to surprise an experienced Rust developer, and it is not a rough edge that will be sanded off &mdash; it falls directly out of how deterministic replay works. Budget real ramp-up time for it.</p>
 
-  <h3><span class="chip c-struct">structural</span>Workflows are single-threaded and <code>!Send</code></h3>
-  <p>The workflow context is built on <code>Rc&lt;RefCell&lt;…&gt;&gt;</code> throughout, so anything holding it is neither <code>Send</code> nor <code>Sync</code>. You will notice this the moment you try to box a future: the SDK's own saga example reaches for <code>LocalBoxFuture</code>, not <code>BoxFuture</code>. Any helper you write for workflow code inherits that constraint, and generic library code with <code>Send</code> bounds simply cannot be used inside a workflow.</p>
+  <h3><span class="chip c-struct">structural</span>Workflows are single-threaded &mdash; and that is the <em>only</em> part that is</h3>
+  <p>This is worth stating precisely, because it is easy to over-generalize into &ldquo;nothing in this SDK is thread-safe&rdquo;, which is wrong. The boundary is sharp: <strong>everything outside a running workflow is <code>Send + Sync</code>.</strong> Only the workflow context and its view are not, because replay happens on a single thread.</p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Type</th><th>Send</th><th>Sync</th></tr></thead>
+    <tbody>
+      <tr><td><code>Client</code>, <code>Connection</code>, <code>Runtime</code>, <code>WorkerOptions</code></td><td class="yes">yes</td><td class="yes">yes</td></tr>
+      <tr><td><code>ActivityContext</code>, <code>ActivityInfo</code></td><td class="yes">yes</td><td class="yes">yes</td></tr>
+      <tr><td>Your activity struct and injected <code>Deps</code></td><td class="yes">yes</td><td class="yes">yes</td></tr>
+      <tr><td>Payload types, <code>RetryPolicy</code>, options structs</td><td class="yes">yes</td><td class="yes">yes</td></tr>
+      <tr><td><code>Worker</code></td><td class="yes">yes</td><td class="no">no</td></tr>
+      <tr><td><code>WorkflowContext&lt;W&gt;</code>, <code>WorkflowContextView</code></td><td class="no">no</td><td class="no">no</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>These rows are compile-time assertions in <code>crates/order-pipeline/tests/send_sync.rs</code>, so they stay honest as the SDK changes. Two consequences are worth internalizing:</p>
+  <p><strong>Your dependencies must be <code>Send + Sync</code>.</strong> Activities run on the multi-threaded tokio runtime and are handed to you as <code>Arc&lt;Self&gt;</code>, so the DI container is ordinary thread-safe Rust &mdash; a <code>PgPool</code>, a <code>reqwest::Client</code>, atomics, <code>tokio::sync::Mutex</code>. Nothing about Temporal constrains that layer, which is most of your code.</p>
+  <p><strong><code>Worker</code> is the one asymmetric case:</strong> <code>Send</code> but not <code>Sync</code>, because it owns the single-threaded workflow cache (<code>RefCell&lt;HashMap&lt;_, WorkflowData&gt;&gt;</code>). You can move a worker into a spawned task; you cannot share one behind an <code>&amp;</code> across threads. Since the lifecycle is &ldquo;call <code>run()</code> once and await it&rdquo;, this rarely bites.</p>
+  <p>Inside workflow code, the constraint is real but confined. Asking for <code>Send</code> gets you:</p>
+<pre><code>error[E0277]: `Rc&lt;RefCell&lt;OrderWorkflow&gt;&gt;` cannot be sent between threads safely
+  = help: within `WorkflowContext&lt;OrderWorkflow&gt;`, the trait `Send`
+          is not implemented for `Rc&lt;RefCell&lt;OrderWorkflow&gt;&gt;`</code></pre>
+  <p>So a future holding the context across an await is itself <code>!Send</code>: use <code>LocalBoxFuture</code> rather than <code>BoxFuture</code> (as the SDK's own saga example does), and you cannot call a helper that demands a <code>Send</code> future. Note the workflow struct itself lives in that <code>Rc&lt;RefCell&lt;…&gt;&gt;</code> &mdash; your workflow state is single-threaded too, and does not need to be <code>Send</code>.</p>
 
   <h3><span class="chip c-struct">structural</span><code>#[run]</code> takes no <code>self</code>, and state access goes through closures</h3>
   <p>You would expect <code>async fn run(&amp;mut self, …)</code>. You get an associated function taking a context instead, and all state access is closure-scoped:</p>
@@ -272,6 +293,35 @@ pub async fn run(ctx: &amp;mut WorkflowContext&lt;Self&gt;) -&gt; WorkflowResult
   <h3><span class="chip c-edge">sharp edge</span>Determinism errors surface one task late</h3>
   <p>The nondeterminism detector watches async wake sources, and those fire asynchronously &mdash; so the workflow task that <em>introduced</em> the bad code completes normally and the <em>next</em> one fails. The stack you are shown is not where the problem is. Look at what the previous task started.</p>
   <p>It also does not catch everything: <code>futures::select!</code> without <code>biased</code> randomizes poll order and passes undetected, as does any purely synchronous nondeterminism such as <code>SystemTime::now()</code> or <code>rand::random()</code>.</p>
+</section>
+
+<section>
+  <p class="eyebrow">Configuration surface</p>
+  <h2>Cargo features</h2>
+  <p class="lead">Smaller than you might expect &mdash; nine on <code>temporalio-sdk</code>, two of them on by default, and two of those nine exist only to build the SDK repo's own examples.</p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Feature</th><th>Default</th><th>What it gets you</th></tr></thead>
+    <tbody>
+      <tr><td><code>envconfig</code></td><td class="yes">on</td><td><code>temporal.toml</code> and <code>TEMPORAL_*</code> config loading. Both binaries in this repo rely on it.</td></tr>
+      <tr><td><code>prometheus</code></td><td class="yes">on</td><td>Prometheus metrics exporter (pulls in <code>hyper</code> to serve them).</td></tr>
+      <tr><td><code>otel</code></td><td>off</td><td>OpenTelemetry metrics exporter instead of / alongside Prometheus.</td></tr>
+      <tr><td><code>testing</code></td><td>off</td><td><code>ActivityEnvironment</code> and <code>WorkflowEnvironment</code>. Enables <code>ephemeral-server</code>, which downloads the Temporal CLI at test time.</td></tr>
+      <tr><td><code>experimental</code></td><td>off</td><td>Plugins, Nexus operation options, patch-activation callbacks, parts of the interceptor API. Documented as &ldquo;may change or be removed&rdquo;.</td></tr>
+      <tr><td><code>dynamic-tls</code></td><td>off</td><td>Per-handshake mTLS client-cert resolution, for rotating short-lived certs without a restart.</td></tr>
+      <tr><td><code>wasm-workflows</code></td><td>off</td><td>Run workflows as WebAssembly components via Wasmtime &mdash; sandboxed and portable, and an unusually direct answer to the determinism problem.</td></tr>
+      <tr><td><code>examples</code>, <code>wasm-examples</code></td><td>off</td><td>Internal; only used to build the SDK repository's own examples.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p><code>temporalio-client</code> adds a few of its own, most usefully the TLS backend choice: <code>tls-ring</code> (default) or <code>tls-aws-lc</code>, plus <code>telemetry</code> and its own <code>envconfig</code> and <code>dynamic-tls</code>.</p>
+
+  <div class="rule">
+    <span class="tag">Do not expect features to slim it down</span>
+    <p>Building with <code>default-features = false</code> and only <code>envconfig</code> took the dependency graph from <strong>246 crates to 245</strong>. The weight is structural &mdash; <code>tonic</code>, <code>prost</code>, the compiled protos, <code>rustls</code> &mdash; and no feature flag removes it. Turn off <code>prometheus</code> because you use OTel, not because you are trying to shrink the build.</p>
+  </div>
+
+  <p>One cargo wrinkle if you use workspace dependencies, as this repo does: <code>default-features = false</code> cannot be set on the inheriting crate. Cargo rejects it with <code>`default-features = false` cannot override workspace's `default-features`</code> &mdash; you have to set it on the workspace root definition instead.</p>
 </section>
 
 <section>
